@@ -1,4 +1,4 @@
-"""My own tic tac toe 1.0"""
+"""My own tic tac toe 2.0"""
 
 import random
 import os
@@ -18,117 +18,160 @@ GAME_BOARD = {
   4  |  5  |  6  
   7  |  8  |  9  
 """,
-    'data' :[[],[],[],[],[],[],[],[],[]],
-    'user_turn' :True
+    'data' : [[],[],[],[],[],[],[],[],[]],
+    'game_mode' : 0 #1 if against a bot #0 if against another person
     }
 
-def main_menu(board_dict: dict):
+def main_menu(data):
     username = input('Please type your name: ')
-    print(f'\nWelcome {username} you will be playing against a bot')
+    clear(stop=False)
+    
+    print(f'Welcome {username} please choose the game type:')
+    print('1 for against the user cool ai\n2 for 2 player game\n')
+    
+    """loops until correct"""
+    choice = None 
+    while choice not in ('1','2'):
+        choice = input('Your choice: ')
     clear('Press Enter to Play')
-    take_turns(board_dict)
     
-def take_turns(board_dict):
-    if board_dict['user_turn']:
-        print('Pick a number to place your piece')
-    else:
-        print('Bot is choose a number to place your piece')
+    data['game_mode'] = int(choice) - 1
+    backend(data, data['game_mode'])
     
-    print(board_dict['board'])
+    
+def backend(data, game_mode):
+    call_bot = True if game_mode == 0 else False
+    player1_turn = random.choice([True, False])
+    winner = None
+    draw = None
+    """Start Game"""
+   
+    """repeat while the game is not over"""
     while True:
+        
+        to_find = 'X' if player1_turn else 'O'
+        
+        """Checking for win, tie"""
+        winner = win_checks(data, to_find, player1_turn)
+        draw = draw_check(data)
+        if winner: break
+        if draw: break
+        
+        """Taking only the input with checks"""
+        print(f'{data["board"]}\n')
+        
+        some_input = take_input(data['data'],player1_turn, call_bot)
+        
+        """Updating the board"""
+        data['data'][some_input] = 1 if player1_turn else 2
+        data['board'] = data['board'].replace(str(some_input + 1), 'X' if player1_turn else 'O')
+        
+        """Changing Turns"""
+        player1_turn = False if player1_turn else True
+        
+    clear('Thank you for playing')
+    
+    
+def take_input(data_list, player1_turn, call_bot):
+    """
+    takes 3 arguments
+    data_list is the backend list
+    player1_turn if true or false
+    game_mode is if against the bot or not
+    """
+    
+    while True:
+        choice = None
+        
         try:
-            if board_dict['user_turn']:
-                choice = int(input('Your choice: '))
+            if player1_turn:
+                choice = int(input('Player 1 Choice: '))
             else:
-                choice = random.randint(0,9)
-                
-            if board_dict['data'][int(choice)-1]:
-                print('sorry that place is taken try again')
-                continue
-
-        except ValueError:
-            print('sorry input is invalid try again')
-        
-        except IndexError:
-            print('sorry that number is invalid')
-        
-        else:
-            break
-    update_board(board_dict, choice, board_dict['user_turn'])
-
-def update_board(board_dict, choice, turn_by_user):
-    board_dict['data'][choice -1] = 1 if turn_by_user else 2
-    board_dict['board'] = board_dict['board'].replace(str(choice), 'X' if turn_by_user else 'O')
-    game_check(board_dict)
-    
-def game_check(board_dict):
-    
-    temporary_list = board_dict['data']
-    checking = True
-    to_find = 1 if board_dict['user_turn'] else 2
-    
-    while checking:
-        """horizontal check"""
-        for layer in 0,3,6:
-            temp = 0
-            
-            for row in range(layer, layer+3):
-                
-                if board_dict['data'][row] == to_find: temp += 1
-                if temp == 3:
-                    clear('CONGRATS')
-                    
-        """diagonal check"""
-        for layer in 0,2:
-            temp = 0
-            if layer == 0:
-                for column in 0,4,8:
-                    if board_dict['data'][column] == to_find: temp += 1
-                    if temp == 3:
-                        clear('CONGRATS')
-            else:
-                for column in 2,4,6:
-                    if board_dict['data'][column] == to_find: temp += 1
-                    if temp == 3:
-                        clear('CONGRATS')
-
-        """vertical check"""
-        for layer in 1,2,3:
-            temp=0
-            if layer == 1:
-                for column in 0,3,6:
-                    if board_dict['data'][column] == to_find: temp += 1
-                    if temp == 3:
-                        clear('CONGRATS')
-            
-            elif layer == 2:
-                for column in 1,4,7:
-                    if board_dict['data'][column] == to_find: temp += 1
-                    if temp == 3:
-                        clear('CONGRATS')
-            else:
-                for column in 2,5,8:
-                    if board_dict['data'][column] == to_find: temp += 1
-                    if temp == 3:
-                        clear('CONGRATS')
-        
-        """full board check"""
-        full = 0
-        for value in temporary_list:
-            if value:
-                full += 1
-                if full == 9:
-                    draw()
-            else:
-                full = 0
+                if call_bot:
+                    print('The cool ai Choice:', end=' ')
+                    choice = random.randint(1,9)
+                    print(choice)
+                else:
+                    choice = int(input('Player 2 Choice: '))
+            if not data_list[int(choice)-1]:
                 break
+        except:
+            pass
+        
+        print('invalid input')
+        
+    return choice -1
+    
+    
+def win_checks(game_data, to_find, player_):
+    """horizontal check"""
+    to_find = 1 if player_ else 2
+    for layer in 0,3,6:
+        temp = 0
+            
+        for row in range(layer, layer+3):
+                
+            if game_data['data'][row] == to_find: temp += 1
+            if temp == 3:
+                win()
+                return True
 
-        checking=False
-    board_dict['user_turn'] = False if board_dict['user_turn'] else True
-    take_turns(board_dict)
+    """diagonal check"""
+    for layer in 0,2:
+        temp = 0
+        if layer == 0:
+            for column in 0,4,8:
+                if game_data['data'][column] == to_find: temp += 1
+                if temp == 3:
+                    win()
+                    return True
+        else:
+            for column in 2,4,6:
+                if game_data['data'][column] == to_find: temp += 1
+                if temp == 3:
+                    win()
+                    return True
 
+    """vertical check"""
+    for layer in 1,2,3:
+        temp=0
+        if layer == 1:
+            for column in 0,3,6:
+                if game_data['data'][column] == to_find: temp += 1
+                if temp == 3:
+                    win()
+                    return True
+                    
+        elif layer == 2:
+            for column in 1,4,7:
+                if game_data['data'][column] == to_find: temp += 1
+                if temp == 3:
+                    win()
+                    return True
+        else:
+            for column in 2,5,8:
+                if game_data['data'][column] == to_find: temp += 1
+                if temp == 3:
+                    win()
+                    return True
+
+def draw_check(game_data):
+    """full board check"""
+    full = 0
+    for value in game_data['data']:
+        if value:
+            full += 1
+            if full == 9:
+                draw()
+                return True
+        else:
+            return False
+    
 def draw():
-    clear('nobody won')
+    clear('DRAW')
 
+def win():
+    clear('WIN')
+    
 if __name__ == '__main__':
     main_menu(GAME_BOARD)
