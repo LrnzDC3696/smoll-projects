@@ -23,8 +23,28 @@ def part_1(input_list):
 
     return int(gamma, base=2) * int(epsilon, base=2)
 
+
+def found_it_out(input_list, counter, strings):
+    if len(input_list) == 1:
+        return ''.join(strings)
+
+    survivor = []
+    count = 0
+
+    for string in input_list:
+        if string[0] == '1':
+            counter -= 1
+        elif string[0] == '0':
+            counter += 1
+        else:
+            raise
+
+
+    found_it_out(input_list, counter*counter, survivor)
+
 def part_2(input_list):
-    pass
+    first = found_it_out(input_list, 1, []) # for possitive
+    second = found_it_out(input_list, -1, []) # for negative
 
 def main():
     input_from_file = [x for x in read_n_format_txt_file() if bool(x)]
