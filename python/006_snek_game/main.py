@@ -1,160 +1,95 @@
-"""
-events mvc
-
-y, x in a cartesian plane
-"""
-
-import random
-from enum import Enum
+from __future__ import annotations
+# delays stuff so we can use Classes even if not yet defined
+# see class View, class Controller
 import curses
-from curses import wrapper
+from utils import Direction, Object
+from typing import Union
 
 
-class Object(Enum):
-    WALL  = '#'
-    SPACE = ' '
-    FOOD  = '@'
-    SNAKE = 'O'
-
-
-class Board:
-    def __init__(self, y=75, x=20):
-        y -= 1
-        x -= 1
+class Model:
+    def __init__(self, y, x) -> None:
         self.y = y
         self.x = x
-        self.board = [[Object.SPACE for _ in range(x)] for _ in range(y)]
-        self.snake = []
 
-        # set stuff up
-        self.setup_wall()
-        self.put_snake()
-        self.put_food()
+    def setup(self):
+        self.new_dire = Direction.LEFT
+        self.curr_dire = Direction.LEFT
+        self.board = [
+            [None for _ in range(self.x)] for _ in range(self.y)
+        ]
 
-    def put_snake(self, y=None, x=None):
-        """Tries to put the snek in the middle"""
-        y = y if y is not None else int(self.y/2)
-        x = x if x is not None else int(self.x/4)
+        snake = []
         for z in range(3):
-            # snake[0][0] is the head
-            self.snake.append([y, x-z])
-            self.board[y][x-z] = Object.SNAKE
+            snake.append([self.y//2, self.x//4-z])
 
-    def put_food(self):
-        """Tries to put a food in a location
-        if the food can't find a place for 1000th time if returns False
-        """
-        loop_counter = 0
-        while True:
-            if loop_counter >= 1000:
-                return None, None
+        self.snake = snake
 
-            y = random.randint(1, self.y-2)
-            x = random.randint(1, self.x-2)
-            if self.board[y][x] != Object.SPACE:
-                continue
-            self.board[y][x] = Object.FOOD
-            break
+    @property
+    def snake_head(self) -> list[int]:
+        return self.snake[0]
 
-        return y,x
+    def process(self, key: Union[str, None]) -> None:
+        dire = Direction.from_str(key)
+        if dire == Direction.UNKNOWN:
+            dire = self.curr_dire
 
+        new_y = self.snake_head[0] + dire.value[0]
+        new_x = self.snake_head[1] + dire.value[1]
+        if self.check_if_die(new_y, new_x):
+            return
+        self.move_snek_to(new_y, new_x)
 
-    def setup_wall(self):
-        """Sets up the wall of the board"""
-        for y in range(self.y):
+    def check_if_die(self, y: int, x: int) -> bool:
+        obj = self.board[y][x]
+        if obj in {Object.SNAKE, Object.WALL}:
+            return True
+        return False
 
-            if y in (0, self.y-1):
-                for x in range(self.x):
-                    self.board[y][x] = Object.WALL
-                continue
-
-            for x in {0, self.x-1}:
-                self.board[y][x] = Object.WALL
+    def move_snek_to(self, y: int, x: int):
+        self.check_if_die(y, x)
 
 
-    def __str__(self):
-        return '\n'.join(
-            [''.join([obj.value for obj in y]) for y in self.board]
-        )
+class View:
+    def setup(self, controller: Controller) -> None:
+        self.controller = controller
+        self.window = curses.initscr()
+        self.going_brr = False
+        curses.nocbreak()
+        curses.echo()
 
-direction = {
-    'k': (-1, 0),
-    'j': (1, 0),
-    'h': (0, -1),
-    'l': (0, 1),
-}
+    def set_window_timeout(self, n: int) -> None:
+        self.window.timeout(n)
 
-opposites = (['k', 'j'],['j', 'k'], ['h', 'l'], ['l', 'h'])
+    def close_window(self) -> None:
+        curses.endwin()
 
-
-# should add a thing so when I go to the opposite direction I can still go brr
-def start_gaeming(screen, board):
-    key = 'l'
-    screen.timeout(100)
-    screen.clear()
-    screen.addstr(0, 0, str(board))
-
-    while True:
-        screen.move(0,0)
-        # make this thing better this is definetely gay
-        screen.refresh()
-
-        try:
-            next_key = screen.getkey()
-        except:
-            next_key = key
-
-        if [key, next_key] in opposites:
-            key = key
-        elif direction.get(next_key) is not None:
-            key = next_key
-        elif direction.get(next_key) == -1:
-            key = next_key
-        elif next_key == 'q':
-            break
-
-        move_to = direction[key]
-
-        # check if dead
-        cur_y, cur_x = board.snake[0]
-        new_y, new_x = (cur_y+move_to[0], cur_x+move_to[1])
-
-        if board.board[new_y][new_x] in (Object.WALL, Object.SNAKE):
-            screen.nodelay(False)
-            screen.clear()
-            screen.addstr('You died')
-            screen.getkey()
-            screen.refresh()
-            break
-
-        if board.board[new_y][new_x] == Object.FOOD:
-            y, x = board.put_food()
-            screen.addstr(y, x, Object.FOOD.value)
-        else:
-            tail_y, tail_x = board.snake.pop()
-            board.board[tail_y][tail_x] = Object.SPACE
-            screen.addstr(tail_y, tail_x, Object.SPACE.value)
-            board.board[new_y][new_x] = Object.SNAKE
-            screen.addstr(new_y, new_x, Object.SNAKE.value)
+    def start_main_loop(self) -> None:
+        """keeps waiting for input?"""
+        self.set_window_timeout(75)
+        self.going_brr = True
+        while self.going_brr:
+            self.window.move(0, 0) # moving the cursor
+            try:
+                key = self.window.getkey()
+            except curses.error:
+                key = None
+            self.controller.handle_key_input(key)
 
 
-        board.snake.insert(0, [new_y, new_x])
+class Controller:
+    def __init__(self, model: Model, view: View) -> None:
+        self.model = model
+        self.view = view
 
+    def start(self) -> None:
+        self.view.setup(self)
+        self.view.start_main_loop()
 
-
-def main(screen):
-    is_gaeming = True
-
-    while is_gaeming:
-        start_gaeming(screen, board = Board(*screen.getmaxyx()))
-        screen.addstr(0, 0, 'wanna play again? y/n')
-        while True:
-            owo = screen.getkey()
-            if owo in {'y', 'n'}:
-                break
-        if owo == 'n':
-            break
+    def handle_key_input(self, key: Union[str, None]) -> None:
+        self.model.process(key)
 
 
 if __name__ == '__main__':
-    wrapper(main)
+    owo = Controller(Model(75, 25), View())
+    owo.start()
+
