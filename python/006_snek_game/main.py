@@ -1,17 +1,13 @@
 from __future__ import annotations
-# delays stuff so we can use Classes even if not yet defined
-# see class View, class Controller
 import curses
-from utils import Direction, Object
-from typing import Union
+from utils import Direction, Status, Object, add_list
+from typing import Union, Any
 
 
 class Model:
-    def __init__(self, y, x) -> None:
+    def setup(self, y: int, x: int) -> None:
         self.y = y
         self.x = x
-
-    def setup(self):
         self.new_dire = Direction.LEFT
         self.curr_dire = Direction.LEFT
         self.board = [
@@ -24,20 +20,19 @@ class Model:
 
         self.snake = snake
 
+    def move(self) -> None:
+        new_y, new_x = add_list(self.snake_head, self.curr_dire.value)
+
+    def change_direction(self, direction: Direction):
+        if direction == Direction.UNKNOWN:
+            direction = self.curr_dire
+        else:
+            direction = self.new_dire
+
     @property
-    def snake_head(self) -> list[int]:
-        return self.snake[0]
-
-    def process(self, key: Union[str, None]) -> None:
-        dire = Direction.from_str(key)
-        if dire == Direction.UNKNOWN:
-            dire = self.curr_dire
-
-        new_y = self.snake_head[0] + dire.value[0]
-        new_x = self.snake_head[1] + dire.value[1]
-        if self.check_if_die(new_y, new_x):
-            return
-        self.move_snek_to(new_y, new_x)
+    def snake_head(self) -> tuple[int, int]:
+        y, x = self.snake[0]
+        return y, x
 
     def check_if_die(self, y: int, x: int) -> bool:
         obj = self.board[y][x]
@@ -57,23 +52,22 @@ class View:
         curses.nocbreak()
         curses.echo()
 
+        self.set_window_timeout(75)
+
     def set_window_timeout(self, n: int) -> None:
         self.window.timeout(n)
 
     def close_window(self) -> None:
         curses.endwin()
 
-    def start_main_loop(self) -> None:
-        """keeps waiting for input?"""
-        self.set_window_timeout(75)
-        self.going_brr = True
-        while self.going_brr:
-            self.window.move(0, 0) # moving the cursor
-            try:
-                key = self.window.getkey()
-            except curses.error:
-                key = None
-            self.controller.handle_key_input(key)
+    def update_str_at(self, y, x, string) -> None:
+        self.window.addstr(y, x, string)
+
+    def wait_for_input(self) -> Union[None, str]:
+        try:
+            self.window.getkey()
+        except:
+            return None
 
 
 class Controller:
@@ -83,13 +77,39 @@ class Controller:
 
     def start(self) -> None:
         self.view.setup(self)
-        self.view.start_main_loop()
+        self.start_gaeming()
+        self.view.close_window()
 
-    def handle_key_input(self, key: Union[str, None]) -> None:
-        self.model.process(key)
+    def start_gaeming(self) -> Status:
+        running = True
+        temporary_counter = 0
+
+        while running:
+            key = self.view.wait_for_input()
+
+            if key == 'q':
+                running = False
+                return Status.QUIT
+
+            direction = Direction.from_str(key)
+
+            self.model.change_direction(direction)
+            is_ded = self.model.check_if_die(
+                *add_list(self.model.snake_head, self.model.curr_dire.value)
+            )
+
+            if is_ded:
+                running = False
+                return Status.DEAD
+
+            # ----------
+            temporary_counter += 1
+            if temporary_counter <= 1000:
+                break
+
+        return Status.QUIT
 
 
 if __name__ == '__main__':
-    owo = Controller(Model(75, 25), View())
-    owo.start()
-
+    ctrl = Controller(Model(), View())
+    ctrl.start()

@@ -1,4 +1,14 @@
-from enum import Enum
+from enum import Enum, auto
+from typing import Union
+
+def add_list(list1: Union[list, tuple], list2: Union[list, tuple]) -> tuple[int, int]:
+    return (list1[0] + list2[0], list1[1] + list2[1])
+
+class Status(Enum):
+    DEAD = auto()
+    MOVED = auto()
+    GAEMING = auto()
+    QUIT = auto()
 
 class Object(Enum):
     SNAKE_HEAD = '@'
