@@ -7,6 +7,7 @@ def add_list(list1: Union[list, tuple], list2: Union[list, tuple]) -> tuple[int,
 class Status(Enum):
     DEAD = auto()
     MOVED = auto()
+    EAT = auto()
     GAEMING = auto()
     QUIT = auto()
 

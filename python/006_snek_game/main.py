@@ -1,7 +1,8 @@
 from __future__ import annotations
 import curses
+import random
 from utils import Direction, Status, Object, add_list
-from typing import Union, Any
+from typing import Union
 
 
 class Model:
@@ -11,37 +12,59 @@ class Model:
         self.new_dire = Direction.LEFT
         self.curr_dire = Direction.LEFT
         self.board = [
-            [None for _ in range(self.x)] for _ in range(self.y)
+            [Object.SPACE for _ in range(self.x)] for _ in range(self.y)
         ]
 
+        self.setup_snake()
+
+    def setup_snake(self) -> None:
         snake = []
+
         for z in range(3):
-            snake.append([self.y//2, self.x//4-z])
+            new_y, new_x = self.y//2, self.x//4-z
+            snake.append([new_y, new_x])
+            self.board[new_y][new_y] = Object.SNAKE
 
         self.snake = snake
 
-    def move(self) -> None:
-        new_y, new_x = add_list(self.snake_head, self.curr_dire.value)
-
-    def change_direction(self, direction: Direction):
+    def change_direction(self, direction: Direction) -> None:
         if direction == Direction.UNKNOWN:
             direction = self.curr_dire
         else:
             direction = self.new_dire
+
+    def generate_food(self) -> tuple[bool, int, int]:
+        status = 0
+        while status <= 1000:
+            status += 1
+
+            y = random.randint(1, self.y-2)
+            x = random.randint(1, self.x-2)
+            if self.board[y][x] != Object.SPACE:
+                continue
+            self.board[y][x] = Object.APPLE
+            break
+        else:
+            return False, 0, 0
+        return True, y, x
 
     @property
     def snake_head(self) -> tuple[int, int]:
         y, x = self.snake[0]
         return y, x
 
-    def check_if_die(self, y: int, x: int) -> bool:
-        obj = self.board[y][x]
-        if obj in {Object.SNAKE, Object.WALL}:
-            return True
-        return False
+    def move_snek(self) -> tuple[Status, int, int]:
+        new_y, new_x = add_list(self.snake_head, self.curr_dire.value)
+        obj = self.board[new_y][new_x]
 
-    def move_snek_to(self, y: int, x: int):
-        self.check_if_die(y, x)
+        if obj in {Object.WALL, Object.SNAKE}:
+            return Status.DEAD, 0, 0
+        elif obj == Object.APPLE:
+            self.board[new_y][new_x] = Object.SNAKE
+            return Status.EAT, new_y, new_x
+
+        self.board[new_y][new_x] = Object.SNAKE
+        return Status.MOVED, new_y, new_x
 
 
 class View:
@@ -76,38 +99,34 @@ class Controller:
         self.view = view
 
     def start(self) -> None:
+        self.model.setup(75, 20)
         self.view.setup(self)
+
         self.start_gaeming()
         self.view.close_window()
 
     def start_gaeming(self) -> Status:
-        running = True
         temporary_counter = 0
 
-        while running:
+        while True:
             key = self.view.wait_for_input()
-
             if key == 'q':
-                running = False
                 return Status.QUIT
 
             direction = Direction.from_str(key)
 
             self.model.change_direction(direction)
-            is_ded = self.model.check_if_die(
-                *add_list(self.model.snake_head, self.model.curr_dire.value)
-            )
+            status, y, x = self.model.move_snek()
 
-            if is_ded:
-                running = False
-                return Status.DEAD
+            # move the snake
+            # self.model.move_snek_to()
+            # move the tail
 
             # ----------
             temporary_counter += 1
             if temporary_counter <= 1000:
-                break
+                return Status.QUIT
 
-        return Status.QUIT
 
 
 if __name__ == '__main__':
